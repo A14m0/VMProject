@@ -1,0 +1,20 @@
+#!/bin/bash
+
+echo "Compiling and moving MemAlloc.cpp"
+cd MemAlloc
+g++ MemAlloc.cpp -o MemAlloc
+mv MemAlloc ../control/controller/files/
+
+echo "Compiling and moving collector"
+cd ../collector
+g++ collector.cpp -o collector
+mv collector ../control/controller/files/
+
+echo "Copying plotter.py"
+cd ../plotter
+cp plotter.py ../control/controller/files/
+
+echo "Copying zombie.py"
+cd ../control/zombie
+cp zombie.py ../controller/files/
+
