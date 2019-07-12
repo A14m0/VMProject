@@ -152,7 +152,7 @@ int speed_test(int function, Network net)
 		memory_alloc_speed(999999);
 		break;
 	case NET_CHECK:
-		net_speed(net, 1000);
+		net_speed(net, 500);
 		break;
 	default:
 		printf("ERROR not passed correct value\n");
@@ -222,9 +222,11 @@ int main(int argc, char** argv){
 
 	// gets current file path, so data will be written to correct folder regardless of where execution is called
 	char result[4096];
+	memset(result, 0, sizeof(result));
 	ssize_t count = readlink( "/proc/self/exe", result, 4096);
 
 	char dir[4096];
+	memset(dir, 0, sizeof(dir));
 	char* last;
 	last = strrchr(result, '/');
 
@@ -289,7 +291,7 @@ int main(int argc, char** argv){
 	}
 
 	int diffcpu = 0, diffmem = 0, ctr = 0, diffnet = 0;
-	time_t start, end;
+	time_t start, end;//CPU, endCPU, startMEM, endMEM, startNET, endNET;
     double elapsed; 
 	Network dummy(false);
 
@@ -307,6 +309,8 @@ int main(int argc, char** argv){
 			
 			ctr++;
 		} while(elapsed < 1);
+		printf("Number of individual checks in 1 second: %d\n", ctr);
+
 		write_data(name, numVM, diffcpu/ctr, diffmem/ctr, diffnet/ctr);
 		diffcpu = 0;
 		diffmem = 0;

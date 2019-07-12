@@ -14,6 +14,7 @@ import psutil
 import glob
 import argparse
 import traceback
+import hashlib
 
 def handle(signal, frame):
     syslog.syslog("Caught SIGTERM. Exiting")
@@ -43,16 +44,19 @@ class Initializer:
     def init(self):
         self.s.connect((self.ip, self.port))
         self.s.send(b'init')
+
         resp = self.s.recv(32)
 
         if not os.path.isdir('files'):
             os.mkdir('files')
 
+        self.getfiles('zombie.py')
+
         self.getfiles('collector')
 
         self.getfiles('MemAlloc')
-        
-        self.getfiles('zombie.py')
+
+        self.getfiles('passes.txt')
         
         self.s.send(b'cli')
         self.numCli = int(self.s.recv(32).decode())
@@ -107,11 +111,11 @@ class BackgroundProcess:
     def start(self):
         if type(self.processName) != type("string"):
             string = str(self.processName).split(' ')[1]
-            log("Starting command '%s'" % string)
+            log("[i] Starting command '%s'" % string)
             proc = multiprocessing.Process(target=self.processName, args=(self.id,))
             proc.start()
         else:
-            log("Starting command '%s'" % self.processName)
+            log("[i] Starting command '%s'" % self.processName)
             
             proc = multiprocessing.Process(target=self.callProc)
             proc.start()
@@ -144,9 +148,7 @@ class Zombie:
         randomcomms = ["ping -c 60 8.8.8.8", 
             "curl -o file.iso http://mirror.math.princeton.edu/pub/ubuntu-iso/14.04/ubuntu-14.04.6-desktop-amd64.iso", 
             maxCPU,
-            "echo 52101400a06b0d716b0092edf68c492b > hash; hashcat -a 0 -m 0 hash /usr/share/wordlists/password/crackstation.txt", # crack the md5 hash of "SuperPassword"
-            # change the wordlist directory to whatever you want. The crackstation one is large (15 GB), but even then it only takes a few minutes to go through the whole thing
-
+            crackPass, # crack the md5 hash of "SuperPassword"
             ]
         self.s.send(b"ok")
     
@@ -171,7 +173,7 @@ class Zombie:
             log("[i] Process is complete, but time still exists on the clock. Choosing new proc...")
             
     def handleTester(self):
-        proc = BackgroundProcess("files/collector n/a " + str(self.numClients))
+        proc = BackgroundProcess("collector/collector n/a " + str(self.numClients))
         proc.start()
         self.s.send(b"ok")
         while True:
@@ -189,7 +191,7 @@ class Zombie:
 
     def handleCPU(self):
         comms = [ "curl http://mirror.math.princeton.edu/pub/ubuntu-iso/14.04/ubuntu-14.04.6-desktop-amd64.iso -o file.iso",
-            "MemAlloc/MemAlloc file.iso 10",
+            "files/MemAlloc file.iso 10",
             maxCPU
         ]
         currIndex = 0
@@ -279,3 +281,24 @@ def killall():
         except IsADirectoryError:
             pass
     
+def crackPass():
+    target = "52101400a06b0d716b0092edf68c492b"
+
+    f = open("files/passes.txt", 'r')
+    data = f.readlines()
+    f.close()
+
+    for password in data:
+        password = password.strip("\n")
+        password = password.encode()
+        hashobj = hashlib.md5()
+        hashobj.update(password)
+        guess = hashobj.hexdigest()
+        if guess == target:
+            print("Password identified: %s" % password.decode())
+            return 0
+
+    print("[-] No password identified for has: %s" % target)
+    return 1
+        
+        

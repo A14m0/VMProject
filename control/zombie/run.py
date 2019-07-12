@@ -5,7 +5,7 @@ import os
 if os.path.exists(".runInit"):
     import files.zombie as z
 else:
-    import zombie
+    import zombie as z
     print("""[!] WARN: You appear to be running the runner for the first time!
           It is possible that you are running an outdated zombie file.
           If any errors occur during actual execution (after initialization),

