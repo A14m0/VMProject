@@ -107,11 +107,11 @@ class BackgroundProcess:
     def start(self):
         if type(self.processName) != type("string"):
             string = str(self.processName).split(' ')[1]
-            log("Starting command '%s'" % string)
+            log("[i] Starting command '%s'" % string)
             proc = multiprocessing.Process(target=self.processName, args=(self.id,))
             proc.start()
         else:
-            log("Starting command '%s'" % self.processName)
+            log("[i] Starting command '%s'" % self.processName)
             
             proc = multiprocessing.Process(target=self.callProc)
             proc.start()
@@ -171,7 +171,7 @@ class Zombie:
             log("[i] Process is complete, but time still exists on the clock. Choosing new proc...")
             
     def handleTester(self):
-        proc = BackgroundProcess("collector/collector n/a " + str(self.numClients))
+        proc = BackgroundProcess("files/collector n/a " + str(self.numClients))
         proc.start()
         self.s.send(b"ok")
         while True:
