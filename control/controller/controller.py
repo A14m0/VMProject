@@ -1,67 +1,78 @@
 #!/usr/bin/env python3
 
-import socket
-import time
-import threading
-import os
-import random
-import subprocess
-import multiprocessing
-import syslog
-import signal
-import psutil
-import argparse
+import socket # net connections
+import time # manage cutoff times
+import threading # multiple connections
+import os # file checks and deletion
+import random # generate random id for each BackgroundProcess obj
+import subprocess # start shell-based commands (like starting test server)
+import multiprocessing # start comms in background
+import syslog # log events
+import signal # catches term events
+import psutil # gets all child processes for killing
+import argparse # parsing CLI args
 
 def log(data):
-    syslog.syslog(str(data))
-    print(data)
+	"""Logs data to syslog and console"""
+	syslog.syslog(str(data))
+	print(data)
 
 
 class BackgroundProcess:
-    def __init__(self, processName):
-        self.processName = processName
-        self.id = hex(random.getrandbits(128))
-        self.alive = True
+	"""Background Process class that takes a command and forks it 
+	into a separate process"""
+	def __init__(self, processName):
+		self.processName = processName
+		self.id = hex(random.getrandbits(128))
+		self.alive = True
         
-        if os.path.exists('.' + self.id):
-            os.remove('.' + self.id)
+		if os.path.exists('.' + self.id):
+			os.remove('.' + self.id)
         
-    def start(self):
-        if type(self.processName) != type("string"):
-            string = str(self.processName).split(' ')[1]
-            log("Starting command '%s'" % string)
-            proc = multiprocessing.Process(target=self.processName, args=(self.id,))
-            proc.start()
-        else:
-            log("Starting command '%s'" % self.processName)
+	def start(self):
+		"""Parses and starts passed command"""
+
+		if type(self.processName) != type("string"):
+			string = str(self.processName).split(' ')[1]
+			log("Starting command '%s'" % string)
+			proc = multiprocessing.Process(target=self.processName, args=(self.id,))
+			proc.start()
+		else:
+			log("Starting command '%s'" % self.processName)
             
-            proc = multiprocessing.Process(target=self.callProc)
-            proc.start()
+			proc = multiprocessing.Process(target=self.callProc)
+			proc.start()
 
-    def callProc(self):
-        # this is used because you cant pass "shell=True" through the args of multiprocessing
-        subprocess.call(self.processName, shell=True)
-        f = open('.' + self.id, 'w')
-        f.write("dead")
-        f.close()
-        print("Process has died")
+	def callProc(self):
+		"""Wrapper process for CLI commands, as you cannot pass required args to subprocess.call()"""
+        
+		subprocess.call(self.processName, shell=True)
+		f = open('.' + self.id, 'w')
+		f.write("dead")
+		f.close()
+		print("Process has died")
 
 
-    def isAlive(self):
-        return not os.path.exists('.' + self.id)
+	def isAlive(self):
+		"""Returns bool of whether the proc is dead or not"""
+		return not os.path.exists('.' + self.id)
 
 
 class ClientInfo:
+	"""Class that holds the information of each client"""
 	def __init__(self, socket, addr, cliType):
 		self.socket = socket
 		self.addr = addr
 		self.type = cliType
 
 class NetController:
+	"""Main controller class. Handles all connections and timing"""
 	def __init__(self, numClients, runtime):
+		# sets up server socket
 		self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 		self.s.bind(("0.0.0.0", 1337))
+
 		self.execTime = runtime
 		self.wait = True
 		self.currTime = time.time()
@@ -69,13 +80,8 @@ class NetController:
 		self.clientArray = []
 		self.numClients = numClients
 
-	def beginTime(self):
-		self.currTime = time.time()
-		self.endTime = self.currTime + (self.execTime * 60)
-		for i in range(len(self.clientArray)):
-			threading.Thread(target = self.waitloop,args = (self.clientArray[i].socket,i)).start()
-
 	def init(self, s):
+		"""Initializes the connected client"""
 		get = s.recv(1024).decode().split(' ')
 		
 		while get[0] != 'comp':
@@ -90,8 +96,17 @@ class NetController:
 		s.close()
 		print("[i] Initialized client")
 
+	def beginTime(self):
+		"""Starts all threads and sets up timing for waitloops"""
+		
+		self.currTime = time.time()
+		self.endTime = self.currTime + (self.execTime * 60)
+		for i in range(len(self.clientArray)):
+			threading.Thread(target = self.waitloop,args = (self.clientArray[i].socket,i)).start()
+
 
 	def sendfiles(self, filename, s):
+		"""Sends requested file to client"""
 		f = open('files/' + filename, 'rb')
 		size = os.path.getsize('files/' + filename)
 		data = f.read()
@@ -100,8 +115,8 @@ class NetController:
 		s.recv(32)
 		s.sendall(data)
 
-
 	def recvall(self, sock, n):
+		"""Receives all data from self.s given size"""
 		data = b''
 		while len(data) < n:
 			packet = sock.recv(n - len(data))
@@ -111,6 +126,7 @@ class NetController:
 		return data
 
 	def waitloop(self, s, index):
+		"""Manages sockets and execution time"""
 		s.send(b"begin")
 		
 		s.recv(16).decode()
@@ -130,6 +146,7 @@ class NetController:
 				s.recv(16)
 				
 	def waitForConnections(self):
+		"""Waits for clients to connect, handles init and start"""
 		self.s.listen(5)
 		print("[+] Listening for %s clients..." % str(self.numClients))
 		while self.wait:
@@ -155,18 +172,19 @@ class NetController:
 				self.beginTime()
 
 def killall():
-    num = 1
+	"""Kills all child processes and cleans up remaining ID files"""
+	num = 1
 
-    try:
-        parent = psutil.Process(os.getpid())
-    except psutil.NoSuchProcess:
-        return
-    children = parent.children(recursive=True)
-    for process in children:
-        log("[ ] Killing child process #%d" % num)
-        process.send_signal(signal.SIGTERM)
-        num += 1
-    log("[i] All proceesses killed off. Cleaning up...")
+	try:
+		parent = psutil.Process(os.getpid())
+	except psutil.NoSuchProcess:
+		return
+	children = parent.children(recursive=True)
+	for process in children:
+		log("[ ] Killing child process #%d" % num)
+		process.send_signal(signal.SIGTERM)
+		num += 1
+	log("[i] All proceesses killed off. Cleaning up...")
 
 
 def main():

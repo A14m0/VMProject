@@ -23,6 +23,7 @@ filenames = []
 allout = False
 
 def getOpt(path):
+    """Handles user file selection"""
     global allout
     files = []
 
@@ -68,6 +69,8 @@ def getOpt(path):
 
 
 def getData(path, filename):
+    """Loads data into Data object from file"""
+
     global allout
 
     if filename == -1:
@@ -118,6 +121,8 @@ def getData(path, filename):
 
 
 def getSmallest(data):
+    """Gets the smallest range for a data set"""
+    
     smallest = len(data[0].date)
     
     for set in data:
@@ -128,6 +133,8 @@ def getSmallest(data):
 
 
 def graph(data):
+    """Generates graphs from passed data object"""
+
     print("[ ] Generating graph...")
     
 
@@ -148,6 +155,7 @@ def graph(data):
         rgb = (r,g,b)
         colors.append(rgb)
         
+        # cleans up displayed name up in the legend
         namearr = value.name.split(' ')
         name = namearr[:2]
     
@@ -157,6 +165,7 @@ def graph(data):
             name.append(namearr[2])
     
         string = "%s (%s VMs)" % (" ".join(name), value.num)
+    
         cpu.scatter(t, value.cpu[:rng], color=(r,g,b), marker='.', label=string)
     
     plt.legend(loc='upper left')
@@ -213,9 +222,9 @@ def graph(data):
     plt.xlabel("Time")
 
     date = str(datetime.datetime.today())
-    plt.savefig(date + ".png")
     plt.show()
     
+    plt.savefig(date + ".png")
     print("[+] Graph saved")
 
 
@@ -224,12 +233,14 @@ def main():
     datarr = []
     listex = []
     
+    # checks if config file exists
     if not os.path.exists("path.cfg"):
         print("[i] Creating path.cfg...")
         f = open("path.cfg", 'w')
-        f.write("../control/zombie/collector/data")
+        f.write("files/data")
         f.close()
     
+    # reads in config file
     f = open("path.cfg", 'r')
     filepath = f.read().strip("\n")
     f.close()
@@ -238,8 +249,11 @@ def main():
     try:
         while opt != 'n':
             filename = getOpt(filepath)
+
+            # catches generic fail
             if filename == -1:
                 continue
+            # catches "All CSV" option
             elif type(filename) == type(listex):
                 for file in filename:
                     data = getData(filepath, file)
@@ -259,6 +273,7 @@ def main():
                 if opt != 'n' and opt != 'y':
                     print("[-] '%s' isn't an option. Defaulting to 'Y'" % opt)
     
+        # graph the data
         graph(datarr)
         return 0
     except KeyboardInterrupt:

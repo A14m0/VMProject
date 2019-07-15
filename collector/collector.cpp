@@ -32,8 +32,8 @@ bool DirectoryExists( const char* pzPath );
 
 
 
-Network::Network(const char* host, int port)
-{
+Network::Network(const char* host, int port){
+	/*Primary constructor for initializing connection information */
 	serv_addr.sin_family = AF_INET; 
 	serv_addr.sin_port = htons(port);
 
@@ -45,14 +45,18 @@ Network::Network(const char* host, int port)
 }
 
 Network::Network(bool opt){
+	/*Dummy constructor for passing false network classes to switch loop */
 	isActive = opt;
 }
 
 bool Network::IsActive(bool opt){
+	/*Accessor method for server alive state */
 	return opt;
 }
 
 void Network::Connect(int counter){
+	/*Handles network connection to testing server */
+
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	
     if (sockfd < 0) 
@@ -90,13 +94,21 @@ Network::~Network()
 
 
 void handle(int a){
-	std::cout << "Caught CTRL-c event. Closing program..." << std::endl;
+	/*Catches system signals */
+	std::cout << "Caught system termination signal. Closing program..." << std::endl;
 	file.close();
 	exit(0);
 }
 
+void error(const char *msg){
+	/*Writes error message and quits */
+    perror(msg);
+    exit(0);
+}
+
+
 int cpu_calc(int n) {
-    // finds the number of primes between 1 and n
+    /*Handles cpu access time speed test loop */
 
   	int i,j;
   	int freq=n-1;
@@ -114,6 +126,7 @@ int cpu_calc(int n) {
 
 
 int memory_alloc_speed(int repeat){
+	/*Handles memory allocation speed test loop */
 	for(int i = 0; i < repeat; i++){
 		int* memory = new int; // allocates a chunk of memory...
 		delete memory; // and then frees it
@@ -122,22 +135,15 @@ int memory_alloc_speed(int repeat){
 	return 0;
 }
 
-void error(const char *msg)
-{
-    perror(msg);
-    exit(0);
-}
-
-
 int net_speed(Network net, int num){
+	/*Handles network connection test loop */
 	net.Connect(num);
     return 0;
 }
 
 
-int speed_test(int function, Network net)
-{
-
+int speed_test(int function, Network net){
+	/*Manages which functions get called */
 
 	int x;
 
@@ -167,7 +173,7 @@ int speed_test(int function, Network net)
 }
 
 void write_data(char* name, int n, int s, int t, int u){
-	
+	/*Writes passed averages to file */
 	time_t now = time(0);
    
    	// convert now to string form
@@ -179,11 +185,13 @@ void write_data(char* name, int n, int s, int t, int u){
 }
 
 void write_header(){
+	/*Writes CSV header to file */
 	file << "Date/Time,VM name,Number VMs,CPU time,Mem access time,Net time\n";
 }
 
 bool DirectoryExists( const char* pzPath )
 {
+	/*Tests if a directory exists in the file system */
     if ( pzPath == NULL) return false;
 
     DIR *pDir;

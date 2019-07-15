@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# THIS IS AN OUTDATED RUN SCRIPT USED FOR REFERENCE
+# THIS IS NOT USED IN THE ACTUAL, CURRENT VERSION
+# OF THE SCRIPTS
+
+
+
+
 trap ctrl_c INT
 
 function ctrl_c() {
@@ -24,7 +31,7 @@ function quitter() {
 	exit 1
 }
 
-
+# Sets VM display output to 800x600 to minimize GUI impact on data c
 xrandr -d :0 --output Virtual1 --mode 800x600
 
 while [ true ] 

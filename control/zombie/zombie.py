@@ -1,32 +1,35 @@
 #!/usr/bin/env python3
 
-import socket
-import os
-import time
-import sys
-import multiprocessing
-import subprocess
-import random
-import simplecrypt as sc
-import syslog
-import signal
-import psutil
-import glob
-import argparse
-import traceback
-import hashlib
+import socket # network communications
+import os # file checks/deletion
+import time # timing 
+import sys # handles program force exits
+import multiprocessing # backgrounding commands
+import subprocess # calling CLI programs
+import random # random selection for process ID and comm selection
+import simplecrypt as sc # encryption/decryption
+import syslog # writing to syslog
+import signal # catching system signals
+import psutil # gets child processes
+import glob # parsing all found hidden files to only include process hidden files
+import argparse # parsing cli args
+import traceback # debug import for troubleshooting
+import hashlib # getting unique process IDs for management
 
 def handle(signal, frame):
+    """Handler for system signals"""
     syslog.syslog("Caught SIGTERM. Exiting")
     sys.exit(1)
 
 signal.signal(signal.SIGTERM, handle)
 
 def log(data):
+    """Logs passed information to both syslog and console"""
     syslog.syslog(str(data))
     print(data)
 
 def init(ip, port):
+    """Initializes the client's files and working directory"""
     initializer = Initializer(ip, port)
     initializer.init()
     return initializer.numClients()
@@ -35,6 +38,8 @@ def init(ip, port):
 
 # TODO: ADD BACKGROUND PROCESS FORK FOR PROGRAMS
 class Initializer:
+    """Class that handles client initialization"""
+
     def __init__(self, ip, port):
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.ip = ip
@@ -42,6 +47,8 @@ class Initializer:
         self.numCli = 0
     
     def init(self):
+        """Gets files from controller server"""
+
         self.s.connect((self.ip, self.port))
         self.s.send(b'init')
 
@@ -66,6 +73,8 @@ class Initializer:
         return 
 
     def getfiles(self, file):
+        """Gets target file from controller server"""
+
         self.s.send(b"get " + file.encode())
         size = int(self.s.recv(1028).decode())
         self.s.send(b'ok')
@@ -85,6 +94,7 @@ class Initializer:
         return 0
 
     def recvall(self, n):
+        """Receives all data from self.s given size"""
         data = b''
         while len(data) < n:
             packet = self.s.recv(n - len(data))
@@ -94,12 +104,15 @@ class Initializer:
         return data
 
     def numClients(self):
+        """Returns the server's expected number of clients"""
         return self.numCli
 
 
 
 
 class BackgroundProcess:
+    """Background Process class that takes a command and forks it 
+    into a separate process"""
     def __init__(self, processName):
         self.processName = processName
         self.id = hex(random.getrandbits(128))
@@ -109,6 +122,8 @@ class BackgroundProcess:
             os.remove('.' + self.id)
         
     def start(self):
+        """Parses and starts passed command"""
+
         if type(self.processName) != type("string"):
             string = str(self.processName).split(' ')[1]
             log("Starting command '%s'" % string)
@@ -121,7 +136,8 @@ class BackgroundProcess:
             proc.start()
 
     def callProc(self):
-        # this is used because you cant pass "shell=True" through the args of multiprocessing
+        """Wrapper process for CLI commands, as you cannot pass required args to subprocess.call()"""
+        
         subprocess.call(self.processName, shell=True)
         f = open('.' + self.id, 'w')
         f.write("dead")
@@ -130,10 +146,13 @@ class BackgroundProcess:
 
 
     def isAlive(self):
+        """Returns bool of whether the proc is dead or not"""
         return not os.path.exists('.' + self.id)
 
 
 class Zombie:
+    """Class that manages the start/stop/timing of all communications and commands"""
+
     def __init__(self, ip, port, cliType, numClients):
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.ip = ip
@@ -144,6 +163,8 @@ class Zombie:
         self.pidArr = []
 
     def handleRando(self):
+        """Handler for the random command set"""
+
         # below, you can add either functions or bash command strings
         randomcomms = ["ping -c 60 8.8.8.8", 
             "curl -o file.iso http://mirror.math.princeton.edu/pub/ubuntu-iso/14.04/ubuntu-14.04.6-desktop-amd64.iso", 
@@ -153,26 +174,30 @@ class Zombie:
         self.s.send(b"ok")
     
         while True:
+            # choose random command from randomcomms
             index = random.randint(0, len(randomcomms) -1)
             
             proc = BackgroundProcess(randomcomms[index])
-            
             proc.start()
             
             while proc.isAlive():
                 self.go = self.s.recv(32).decode()
                 
+                # catches end of time signal from comms server
                 if self.go == "Complete":
                     killall()
                     time.sleep(0.1)
                     self.s.close()
                     log("[i] Script complete")
                     return
+                
                 time.sleep(5)
                 self.s.send(b'ok')
             log("[i] Process is complete, but time still exists on the clock. Choosing new proc...")
             
     def handleTester(self):
+        """Handler for the tester command set"""
+
         proc = BackgroundProcess("files/collector n/a " + str(self.numClients))
         proc.start()
         self.s.send(b"ok")
@@ -190,6 +215,8 @@ class Zombie:
             self.s.send(b"ok")
 
     def handleCPU(self):
+        """Handler for the CPU-Intensive command set"""
+
         comms = [ "curl http://mirror.math.princeton.edu/pub/ubuntu-iso/14.04/ubuntu-14.04.6-desktop-amd64.iso -o file.iso",
             "files/MemAlloc file.iso 10",
             maxCPU
@@ -197,9 +224,11 @@ class Zombie:
         currIndex = 0
         self.s.send(b"ok")
         while True:
+            # tests if all commands have been run
             if currIndex >= len(comms) - 1:
                 currIndex = 0
                 log("[i] Completed one full cycle. Starting from the top")
+            
             proc = BackgroundProcess(comms[currIndex])
             proc.start()
             
@@ -217,11 +246,15 @@ class Zombie:
             currIndex += 1   
 
     def start(self):
+        """Starts the timing loop and selects correct handler function"""
         self.s.connect((self.ip, self.port))
         log("[+] Waiting for the go-ahead")
+        
         self.s.send(self.type.encode())
         self.go = self.s.recv(32).decode()
+        
         log("[i] Got: %s" % self.go)
+        
         if self.type == "rando":
             self.handleRando()
         elif self.type == "tester":
@@ -232,6 +265,7 @@ class Zombie:
 endtime = 0
 
 def encrypt(procnum):
+    """Continuously encrypts and decrypts data until the endtime is hit"""
     global endtime
 
     while True:
@@ -245,6 +279,8 @@ def encrypt(procnum):
         sc.decrypt(password, enc)
 
 def maxCPU(id):
+    """Utilizes as much CPU processing as possible"""
+
     global endtime
 
     endtime = time.time() + random.randint(0, 100000)
@@ -262,6 +298,7 @@ def maxCPU(id):
         
 
 def killall():
+    """Kills all child processes and cleans up remaining ID files"""
     num = 1
 
     try:
@@ -282,6 +319,8 @@ def killall():
             pass
     
 def crackPass():
+    """Simple password cracking function (as an alternative to CLI-based programs)"""
+
     # hash for SuperDuperPassword
     target = "52101400a06b0d716b0092edf68c492b" 
 

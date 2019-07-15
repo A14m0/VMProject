@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-import argparse
-from importlib import reload
-import os
+import argparse # parses CLI args
+from importlib import reload # allows for reloading of zombie library on new version from server
+import os # file checks
+
+# checks if this is the first time the program has been run
 if os.path.exists(".runInit"):
     import files.zombie as z
 else:
@@ -21,6 +23,7 @@ def main():
 
     args = parser.parse_args()
 
+    # catches illegal arg types
     if args.type not in ["rando", "tester", "cpu"]:
         print("[-] Illegal type argument: '%s'" % args.type)
         return 1
