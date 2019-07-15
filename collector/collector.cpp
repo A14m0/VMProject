@@ -146,13 +146,13 @@ int speed_test(int function, Network net)
 	switch (function)
 	{
 	case CPU_CHECK:
-		cpu_calc(99999);
+		cpu_calc(9999);
 		break;
 	case MEM_CHECK:
-		memory_alloc_speed(999999);
+		memory_alloc_speed(99999);
 		break;
 	case NET_CHECK:
-		net_speed(net, 500);
+		net_speed(net, 50);
 		break;
 	default:
 		printf("ERROR not passed correct value\n");

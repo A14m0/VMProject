@@ -111,11 +111,11 @@ class BackgroundProcess:
     def start(self):
         if type(self.processName) != type("string"):
             string = str(self.processName).split(' ')[1]
-            log("[i] Starting command '%s'" % string)
+            log("Starting command '%s'" % string)
             proc = multiprocessing.Process(target=self.processName, args=(self.id,))
             proc.start()
         else:
-            log("[i] Starting command '%s'" % self.processName)
+            log("Starting command '%s'" % self.processName)
             
             proc = multiprocessing.Process(target=self.callProc)
             proc.start()
@@ -173,7 +173,7 @@ class Zombie:
             log("[i] Process is complete, but time still exists on the clock. Choosing new proc...")
             
     def handleTester(self):
-        proc = BackgroundProcess("collector/collector n/a " + str(self.numClients))
+        proc = BackgroundProcess("files/collector n/a " + str(self.numClients))
         proc.start()
         self.s.send(b"ok")
         while True:
@@ -282,8 +282,10 @@ def killall():
             pass
     
 def crackPass():
-    target = "52101400a06b0d716b0092edf68c492b"
+    # hash for SuperDuperPassword
+    target = "52101400a06b0d716b0092edf68c492b" 
 
+    # Password hash
     f = open("files/passes.txt", 'r')
     data = f.readlines()
     f.close()

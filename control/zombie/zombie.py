@@ -173,7 +173,7 @@ class Zombie:
             log("[i] Process is complete, but time still exists on the clock. Choosing new proc...")
             
     def handleTester(self):
-        proc = BackgroundProcess("collector/collector n/a " + str(self.numClients))
+        proc = BackgroundProcess("files/collector n/a " + str(self.numClients))
         proc.start()
         self.s.send(b"ok")
         while True:
