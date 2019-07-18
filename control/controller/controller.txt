@@ -1,7 +1,0 @@
-Controller listening on a port:
-	1) needs to be able to adapt to different kinds of control schemes
-		a) Tester controller, just like last time sits there until the timer runs out
-		b) Random tester, needs to be able to randomly select different sub-programs to run and randomly select times to do nothing (maybe run 2 programs at the same time even)
-			i) Maybe some different profiles?
-
-Make sure that everyone has a copy of the data collection c++ program and in the end uploads all csv to host

@@ -7,16 +7,24 @@ import os # file checks and deletion
 import random # generate random id for each BackgroundProcess obj
 import subprocess # start shell-based commands (like starting test server)
 import multiprocessing # start comms in background
-import syslog # log events
 import signal # catches term events
 import psutil # gets all child processes for killing
 import argparse # parsing CLI args
+import logging # handles logs received from clients
+import socketserver # handles network receive of client logs
+import datetime # generates log files from tests
 
-def log(data):
-	"""Logs data to syslog and console"""
-	syslog.syslog(str(data))
-	print(data)
+logname = "logs/" + str(datetime.datetime.now()).replace(" ", "_") + '.log'
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)-15s %(clientip)s %(message)s', filename=logname, filemode='a')
+
+
+class SyslogHandler(socketserver.BaseRequestHandler):
+	def handle(self):
+		data = bytes.decode(self.request[0].strip())
+		socket = self.request[1]
+		print( "%s : " % self.client_address[0], str(data))
+		logging.info(str(data), extra={"clientip": self.client_address[0]})
 
 class BackgroundProcess:
 	"""Background Process class that takes a command and forks it 
@@ -34,11 +42,11 @@ class BackgroundProcess:
 
 		if type(self.processName) != type("string"):
 			string = str(self.processName).split(' ')[1]
-			log("Starting command '%s'" % string)
+			print("Starting command '%s'" % string)
 			proc = multiprocessing.Process(target=self.processName, args=(self.id,))
 			proc.start()
 		else:
-			log("Starting command '%s'" % self.processName)
+			print("Starting command '%s'" % self.processName)
             
 			proc = multiprocessing.Process(target=self.callProc)
 			proc.start()
@@ -88,7 +96,8 @@ class NetController:
 	
 			if get[0] == 'cli':
 				s.send(str(self.numClients).encode())
-			#elif
+			elif get[0] == "list":
+				s.send(str(os.listdir("files")).encode())
 			else:
 				self.sendfiles(get[1], s)
 			
@@ -147,6 +156,9 @@ class NetController:
 				
 	def waitForConnections(self):
 		"""Waits for clients to connect, handles init and start"""
+		print("[ ] Starting Syslog collection server...")
+		proc = BackgroundProcess(syslogLoop)
+		proc.start()
 		self.s.listen(5)
 		print("[+] Listening for %s clients..." % str(self.numClients))
 		while self.wait:
@@ -181,11 +193,21 @@ def killall():
 		return
 	children = parent.children(recursive=True)
 	for process in children:
-		log("[ ] Killing child process #%d" % num)
+		print("[ ] Killing child process #%d" % num)
 		process.send_signal(signal.SIGTERM)
 		num += 1
-	log("[i] All proceesses killed off. Cleaning up...")
+	print("[i] All proceesses killed off. Cleaning up...")
 
+def syslogLoop(param):
+	try:
+		host = '0.0.0.0'
+		port = 10000
+		server = socketserver.UDPServer((host,port), SyslogHandler)
+		server.serve_forever(poll_interval=0.5)
+	except (IOError, SystemExit):
+		raise
+	except KeyboardInterrupt:
+		print ("[Syslog Server] Crtl+C Pressed. Shutting down.")
 
 def main():
 	parser = argparse.ArgumentParser(description="Control server to synchronize execution across multiple clients")

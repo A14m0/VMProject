@@ -8,25 +8,26 @@ import multiprocessing # backgrounding commands
 import subprocess # calling CLI programs
 import random # random selection for process ID and comm selection
 import simplecrypt as sc # encryption/decryption
-import syslog # writing to syslog
 import signal # catching system signals
 import psutil # gets child processes
 import glob # parsing all found hidden files to only include process hidden files
 import argparse # parsing cli args
 import traceback # debug import for troubleshooting
 import hashlib # getting unique process IDs for management
+import logging # for handling sending information to server
+import logging.handlers # for handling sending information to server
+
+FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
+logging.basicConfig(format=FORMAT)
+
 
 def handle(signal, frame):
     """Handler for system signals"""
-    syslog.syslog("Caught SIGTERM. Exiting")
+    print("Caught SIGTERM. Exiting")
     sys.exit(1)
 
 signal.signal(signal.SIGTERM, handle)
 
-def log(data):
-    """Logs passed information to both syslog and console"""
-    syslog.syslog(str(data))
-    print(data)
 
 def init(ip, port):
     """Initializes the client's files and working directory"""
@@ -80,7 +81,7 @@ class Initializer:
         self.s.send(b'ok')
         dat = self.recvall(size)
         if dat == None:
-            log("[-] Failed to get file. Server did not send data")
+            print("[-] Failed to get file. Server did not send data")
             self.s.send(b'err')
             return -1
         else:
@@ -126,11 +127,11 @@ class BackgroundProcess:
 
         if type(self.processName) != type("string"):
             string = str(self.processName).split(' ')[1]
-            log("Starting command '%s'" % string)
+            print("Starting command '%s'" % string)
             proc = multiprocessing.Process(target=self.processName, args=(self.id,))
             proc.start()
         else:
-            log("Starting command '%s'" % self.processName)
+            print("Starting command '%s'" % self.processName)
             
             proc = multiprocessing.Process(target=self.callProc)
             proc.start()
@@ -161,6 +162,12 @@ class Zombie:
         self.numClients = numClients
         self.type = cliType
         self.pidArr = []
+        self.logger = logging.getLogger("MainLogger")
+        self.logger.setLevel(logging.INFO)
+        self.d = {"clientip": self.ip, "user": self.type}
+
+        self.handler = logging.handlers.SysLogHandler((self.ip, 10000))
+        self.logger.addHandler(self.handler)
 
     def handleRando(self):
         """Handler for the random command set"""
@@ -188,12 +195,12 @@ class Zombie:
                     killall()
                     time.sleep(0.1)
                     self.s.close()
-                    log("[i] Script complete")
+                    self.logger.info("Script complete", extra=self.d)
                     return
                 
                 time.sleep(5)
                 self.s.send(b'ok')
-            log("[i] Process is complete, but time still exists on the clock. Choosing new proc...")
+            self.logger.info("Process is complete, but time still exists on the clock. Choosing new proc...", extra=self.d)
             
     def handleTester(self):
         """Handler for the tester command set"""
@@ -207,7 +214,7 @@ class Zombie:
                 killall()
                 time.sleep(0.1)
                 self.s.close()
-                log("[i] Script complete.")
+                self.logger.log("Script complete.", extra=self.d)
                 return
 
             time.sleep(5)
@@ -227,7 +234,7 @@ class Zombie:
             # tests if all commands have been run
             if currIndex >= len(comms) - 1:
                 currIndex = 0
-                log("[i] Completed one full cycle. Starting from the top")
+                self.logger.info("Completed one full cycle. Starting from the top", extra=self.d)
             
             proc = BackgroundProcess(comms[currIndex])
             proc.start()
@@ -238,22 +245,22 @@ class Zombie:
                     killall()
                     time.sleep(0.1)
                     self.s.close()
-                    log("[i] Script complete")
+                    self.logger.info("Script complete", extra=self.d)
                     return
                 time.sleep(5)
                 self.s.send(b'ok')
-            log("[i] Process is complete, but time still exists on the clock. Choosing new proc...")
+            self.logger.info("Process is complete, but time still exists on the clock. Choosing new proc...", extra=self.d)
             currIndex += 1   
 
     def start(self):
         """Starts the timing loop and selects correct handler function"""
         self.s.connect((self.ip, self.port))
-        log("[+] Waiting for the go-ahead")
+        self.logger.info("Waiting for the go-ahead", extra=self.d)
         
         self.s.send(self.type.encode())
         self.go = self.s.recv(32).decode()
         
-        log("[i] Got: %s" % self.go)
+        self.logger.info("Got: %s" % self.go, extra=self.d)
         
         if self.type == "rando":
             self.handleRando()
@@ -271,7 +278,7 @@ def encrypt(procnum):
     while True:
         currTime = time.time()
         if currTime > endtime:
-            log("Hit end time")
+            print("Hit end time")
             return
         password = "superDuperPassword"
         data = "Secret something"
@@ -286,12 +293,12 @@ def maxCPU(id):
     endtime = time.time() + random.randint(0, 100000)
 
     processes = multiprocessing.cpu_count()
-    log("Beginning encrypy/decrypt routines")
-    log('Running load on CPU')
-    log('Utilizing %d cores' % processes)
+    print("Beginning encrypy/decrypt routines")
+    print('Running load on CPU')
+    print('Utilizing %d cores' % processes)
     pool = multiprocessing.Pool(processes)
     pool.map(encrypt, range(processes))
-    log("Completed encrypt/decrypt routines")
+    print("Completed encrypt/decrypt routines")
     f = open('.' + id, 'w')
     f.write("dead")
     f.close()
@@ -307,10 +314,10 @@ def killall():
         return
     children = parent.children(recursive=True)
     for process in children:
-        log("[ ] Killing child process #%d" % num)
+        print("[ ] Killing child process #%d" % num)
         process.send_signal(signal.SIGTERM)
         num += 1
-    log("[i] All proceesses killed off. Cleaning up...")
+    print("[i] All proceesses killed off. Cleaning up...")
     for file in glob.glob(".0x*"):
         print("[i] Found leftover file %s" % file)
         try:
@@ -324,7 +331,7 @@ def crackPass():
     # hash for SuperDuperPassword
     target = "52101400a06b0d716b0092edf68c492b" 
 
-    # Password hash
+    # Password file
     f = open("files/passes.txt", 'r')
     data = f.readlines()
     f.close()
@@ -336,7 +343,7 @@ def crackPass():
         hashobj.update(password)
         guess = hashobj.hexdigest()
         if guess == target:
-            print("Password identified: %s" % password.decode())
+            print("[+] Password identified: %s" % password.decode())
             return 0
 
     print("[-] No password identified for has: %s" % target)

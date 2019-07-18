@@ -1,0 +1,8 @@
+.vscode/
+collector/data/
+collector/a.out
+control/controller/files/
+control/controller/logs/
+control/controller/server/a.out
+control/zombie/__pycache__/
+MemAlloc/a.out
