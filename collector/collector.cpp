@@ -330,3 +330,17 @@ int main(int argc, char** argv){
 	return 0;
 
 }
+
+
+
+
+/*
+TODOS: Trash the Network testing information stuffs...
+	   Implement 2 different things:
+			1) Traceroute
+			2) Ping the second hop to, say, google.com (note only do one per sec (not avg), do once a sec 15 times, then wait 5 mins)
+
+
+https://stackoverflow.com/questions/15458438/implementing-traceroute-using-icmp-in-c#15462552
+https://gist.github.com/KelviNosse/930988c7dda1966e164a712fa32dc567
+*/

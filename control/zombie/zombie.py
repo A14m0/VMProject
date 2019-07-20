@@ -226,7 +226,8 @@ class Zombie:
 
         comms = [ "curl http://mirror.math.princeton.edu/pub/ubuntu-iso/14.04/ubuntu-14.04.6-desktop-amd64.iso -o file.iso",
             "files/MemAlloc file.iso 10",
-            maxCPU
+            maxCPU,
+            "rm file.iso"
         ]
         currIndex = 0
         self.s.send(b"ok")
