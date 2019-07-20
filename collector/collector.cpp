@@ -1,96 +1,19 @@
 #include "header.h"
+#include "ping.h"
 
 std::ofstream file;
 
-class Network
-{
-private:
-	int sockfd, portno, n, ret;
-	struct sockaddr_in serv_addr;
-    struct hostent *server;
-	bool isActive;
-	
-	
-public:
-	Network(const char*, int);
-	Network(bool);
-	void Connect(int);
-	bool IsActive(bool);
-	~Network();
-};
-
+static uid_t ruid;
 
 void handle(int a);
 int cpu_calc(int n);
 int memory_alloc_speed(int repeat);
 void error(const char *msg);
-int net_speed(Network* net, int num);
+//int net_speed();
 int speed_test(int function);
 void write_data(char* name, int n, int s, int t, int u);
 void write_header();
 bool DirectoryExists( const char* pzPath );
-
-
-
-Network::Network(const char* host, int port){
-	/*Primary constructor for initializing connection information */
-	serv_addr.sin_family = AF_INET; 
-	serv_addr.sin_port = htons(port);
-
-	
-	if(inet_pton(AF_INET, host, &serv_addr.sin_addr) <= 0)
-		printf("[-] ERROR invalid address\n");
-
-    portno = port;   
-}
-
-Network::Network(bool opt){
-	/*Dummy constructor for passing false network classes to switch loop */
-	isActive = opt;
-}
-
-bool Network::IsActive(bool opt){
-	/*Accessor method for server alive state */
-	return opt;
-}
-
-void Network::Connect(int counter){
-	/*Handles network connection to testing server */
-
-	sockfd = socket(AF_INET, SOCK_STREAM, 0);
-	
-    if (sockfd < 0) 
-        error("ERROR opening socket");
-	
-	ret = connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr));
-	if (ret < 0) 
-        error("ERROR connecting");
-
-	int count = 0;
-	char buffer[256] = "SuperDuperStressTest";
-    
-
-    while(count < counter){
-        n = send(sockfd,buffer,strlen(buffer), MSG_NOSIGNAL);
-		
-		if (n < 0) 
-            error("ERROR writing to socket");
-        
-        bzero(buffer,256);
-        n = read(sockfd,buffer,255);
-        if (n < 0) 
-            error("ERROR reading from socket");
-
-		count++;
-    }
-    
-
-}
-
-Network::~Network()
-{
-	close(sockfd);
-}
 
 
 void handle(int a){
@@ -104,6 +27,26 @@ void error(const char *msg){
 	/*Writes error message and quits */
     perror(msg);
     exit(0);
+}
+
+void do_root (void)
+{
+        int status;
+        status = seteuid (0);
+        if (status < 0) { 
+        	perror("Failed to set effective UID to root");
+			printf("Make sure that this program is owned by root and the setuid bit is set\n");
+			printf("This can be done through the following:\n\tsudo chown root collector\n\tsudo chmod 4755 collector\n");
+			exit(1);
+		}   
+}
+
+void undo_root(void){
+	int status;
+	status = seteuid (ruid);
+    if (status < 0) { 
+        perror("Failed to set effective UID to non-root user");
+    }
 }
 
 
@@ -135,14 +78,15 @@ int memory_alloc_speed(int repeat){
 	return 0;
 }
 
-int net_speed(Network net, int num){
-	/*Handles network connection test loop */
-	net.Connect(num);
-    return 0;
+void *netTest(void *data){
+	char *addr = (char *)data;
+	do_root();
+	ping(addr);
+
 }
 
 
-int speed_test(int function, Network net){
+int speed_test(int function){
 	/*Manages which functions get called */
 
 	int x;
@@ -156,9 +100,6 @@ int speed_test(int function, Network net){
 		break;
 	case MEM_CHECK:
 		memory_alloc_speed(99999);
-		break;
-	case NET_CHECK:
-		net_speed(net, 50);
 		break;
 	default:
 		printf("ERROR not passed correct value\n");
@@ -208,9 +149,29 @@ bool DirectoryExists( const char* pzPath )
     return bExists;
 }
 
+int index_of(char* str, char find){
+    int i = 0;
+ 
+    while (str[i] != '\0')
+    {
+        if (str[i] == find)
+        {
+            return i;
+        }
+
+        i++;
+    }
+
+    return -1;
+
+}
 
 
-int main(int argc, char** argv){
+
+
+int main(int argc, char** argv) {
+	// saves the user's UID to drop privilages when needed
+	ruid = getuid();
 
     // initializes signal handlers
 	struct sigaction sigIntHandler;
@@ -260,7 +221,7 @@ int main(int argc, char** argv){
 	char* name = "BASELINE (no vm)";
 	int numVM = 0;
 	char yesNo = 'a';
-	Network net("172.16.193.1", 13337);
+	//Network net("172.16.193.1", 13337);
 
 	time_t now = time(0);
 	std::string dt(ctime(&now));
@@ -298,10 +259,38 @@ int main(int argc, char** argv){
 		std::cout << "Beginning...\n";
 	}
 
-	int diffcpu = 0, diffmem = 0, ctr = 0, diffnet = 0;
+	FILE* comm_out;
+	comm_out = popen("traceroute google.com", "r");
+	char comm_buffer[4096];
+	int i = 0;
+
+	while(i < 3){
+		fgets(comm_buffer, sizeof(comm_buffer), comm_out);
+		i++;
+	}
+
+	int ending_space = index_of(comm_buffer+4, ' ');
+
+	char ip[4096];
+	strncpy(ip, comm_buffer+4, ending_space -4);
+	printf("[i] Determined IP of gateway: %s\n", ip);
+
+	fclose(comm_out);
+
+	// comm_buffer should only contain the line we want now
+
+
+	int diffcpu = 0, diffmem = 0, ctr = 0;//, diffnet = 0;
 	time_t start, end;//CPU, endCPU, startMEM, endMEM, startNET, endNET;
     double elapsed; 
-	Network dummy(false);
+	//Network dummy(false);
+
+	pthread_t nettestThread;
+
+	if(pthread_create(&nettestThread, NULL, netTest, ip)){
+		perror("Failed to create thread");
+		exit(1);
+	}
 
 	while(true){
 		time(&start);
@@ -309,11 +298,9 @@ int main(int argc, char** argv){
 			time(&end);
 			elapsed = difftime(end, start);
 
-			diffcpu += speed_test(CPU_CHECK, dummy);
+			diffcpu += speed_test(CPU_CHECK);
 
-			diffmem += speed_test(MEM_CHECK, dummy);
-			
-			diffnet += speed_test(NET_CHECK, net);
+			diffmem += speed_test(MEM_CHECK);
 			
 			ctr++;
 		} while(elapsed < 1);

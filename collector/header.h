@@ -16,8 +16,7 @@
 #include <netinet/in.h>
 #include <netdb.h> 
 #include <arpa/inet.h>
-
+#include <pthread.h>
 
 #define CPU_CHECK 0
 #define MEM_CHECK 1
-#define NET_CHECK 2
