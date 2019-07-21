@@ -10,6 +10,9 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <strings.h>
+#include <time.h> 
+//#include <fcntl.h> 
+
 
 #define PACKETSIZE  64
 struct packet
@@ -19,7 +22,7 @@ struct packet
 };
 
 int pid=-1;
-struct protoent *proto=NULL;
+struct protoent *proto = NULL;
 int cnt=1;
 
 /*--------------------------------------------------------------------*/
@@ -27,7 +30,7 @@ int cnt=1;
 /*--------------------------------------------------------------------*/
 unsigned short checksum(void *b, int len)
 {
-    unsigned short *buf = b;
+    unsigned short *buf = (unsigned short *) b;
     unsigned int sum=0;
     unsigned short result;
 
@@ -46,7 +49,7 @@ unsigned short checksum(void *b, int len)
 /*--- ping - Create message and send it.                           ---*/
 /*    return 0 is ping Ok, return 1 is ping not OK.                ---*/
 /*--------------------------------------------------------------------*/
-int ping(char *adress)
+long double *ping(char *adress)
 {
     const int val=255;
     int i, sd;
@@ -55,6 +58,14 @@ int ping(char *adress)
     int loop;
     struct hostent *hname;
     struct sockaddr_in addr_ping,*addr;
+	long double rtt_msec;
+
+	long double vals[15];
+
+	struct timespec time_start, time_end, tfs, tfe;
+
+	clock_gettime(CLOCK_MONOTONIC, &tfs); 
+
 
     pid = getpid();
     proto = getprotobyname("ICMP");
@@ -70,29 +81,26 @@ int ping(char *adress)
     if ( sd < 0 )
     {
         perror("socket");
-        return 1;
+        return NULL;
     }
     if ( setsockopt(sd, SOL_IP, IP_TTL, &val, sizeof(val)) != 0)
     {
         perror("Set TTL option");
-        return 1;
+        return NULL;
     }
     if ( fcntl(sd, F_SETFL, O_NONBLOCK) != 0 )
     {
         perror("Request nonblocking I/O");
-        return 1;
+        return NULL;
     }
 
-    for (loop=0;loop < 15; loop++)
+    for (loop=0;loop < PING_NUM; loop++)
     {
 
-        int len=sizeof(r_addr);
+        
+		
 
-        if ( recvfrom(sd, &pckt, sizeof(pckt), 0, (struct sockaddr*)&r_addr, &len) > 0 )
-        {
-            return 0;
-        }
-
+        
         bzero(&pckt, sizeof(pckt));
         pckt.hdr.type = ICMP_ECHO;
         pckt.hdr.un.echo.id = pid;
@@ -101,15 +109,40 @@ int ping(char *adress)
         pckt.msg[i] = 0;
         pckt.hdr.un.echo.sequence = cnt++;
         pckt.hdr.checksum = checksum(&pckt, sizeof(pckt));
+
+
+///////////// CHECK LINE 218 /////////////////
+
+		clock_gettime(CLOCK_MONOTONIC, &time_start); 
+		
         if ( sendto(sd, &pckt, sizeof(pckt), 0, (struct sockaddr*)addr, sizeof(*addr)) <= 0 )
             perror("sendto");
+		
+		int len=sizeof(r_addr);
 
-        usleep(300000);
+		if ( recvfrom(sd, &pckt, sizeof(pckt), 0, (struct sockaddr*)&r_addr, &len) > 0 )
+        {
+            return NULL;
+        }
+
+		clock_gettime(CLOCK_MONOTONIC, &time_end); 
+
+		double timeElapsed = ((double)(time_end.tv_nsec - time_start.tv_nsec))/1000000.0;
+		rtt_msec = (time_end.tv_sec- time_start.tv_sec) * 1000.0 + timeElapsed; 
+			
+
+		printf("Got time %Lf\n", timeElapsed);	
+
+		vals[loop] = rtt_msec;
+
+        sleep(1);
 
     }
 
-    return 1;
+    return vals;
 }
+
+
 
 
 /*

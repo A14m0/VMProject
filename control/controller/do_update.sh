@@ -4,4 +4,4 @@
 # and move all updated files into the 
 # controller's directory for distribution
 cd ../..
-./update
+./update.sh

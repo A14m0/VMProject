@@ -9,11 +9,11 @@ from random import randint
 
 class data:
     """Class for storing information from generated .CSV files"""
-    def __init__(self, date, time, num, cpu, mem, net, filename):
+    def __init__(self, date, time, num, cpu, mem, filename):
         self.date = date # date array
         self.cpu = cpu # cpu access time avg array
         self.mem = mem # mem access time avg array
-        self.net = net # net comm time avg array
+        #self.net = net # net comm time avg array
         self.num = num # number of VMs
         self.time = time # time of each avg set write
         self.name = filename
@@ -87,7 +87,7 @@ def getData(path, filename):
     datearr = []
     memarr = []
     cpuarr = []
-    netarr = []
+    #netarr = []
     timearr = []
     numVM = ""
 
@@ -99,7 +99,7 @@ def getData(path, filename):
             numVM = row[2]
             cpuarr.append(int(row[3]))
             memarr.append(int(row[4]))
-            netarr.append(int(row[5]))
+            #netarr.append(int(row[5]))
         except ValueError:
             pass
 
@@ -117,7 +117,7 @@ def getData(path, filename):
         string = string.split(" ")[3]
         datearr[i] = string
 
-    return data(datearr, timearr, numVM, cpuarr, memarr, netarr, filename)
+    return data(datearr, timearr, numVM, cpuarr, memarr, filename)
 
 
 def getSmallest(data):
@@ -196,7 +196,7 @@ def graph(data):
     plt.ylabel("Memory access times")
     plt.xlabel("Time")
 
-
+    """
     counter = 0
     net = fig.add_subplot(gs[2,0])
     for value in data:
@@ -220,7 +220,7 @@ def graph(data):
     plt.legend(loc='upper left')
     plt.ylabel("Network transmission times")
     plt.xlabel("Time")
-
+    """
     date = str(datetime.datetime.today())
     plt.show()
     

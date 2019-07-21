@@ -1,3 +1,5 @@
 #pragma once
 
-int ping(char *addr);
+#define PING_NUM 15
+
+long double *ping(char *addr);

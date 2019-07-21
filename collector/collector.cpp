@@ -2,6 +2,20 @@
 #include "ping.h"
 
 std::ofstream file;
+std::ofstream netFile;
+
+
+/*
+NOTE TO SELF:
+SEE IF IT IS POSSIBLE TO LINK THE NETWORK FILES TO THE MAIN FILE THROUGH SOMETHING???
+MAYBE NAME IT AS ONE OF THE HEADER OPTIONS AND JUST LOAD THAT DATA TOO??
+ */
+
+
+
+
+
+
 
 static uid_t ruid;
 
@@ -16,10 +30,12 @@ void write_header();
 bool DirectoryExists( const char* pzPath );
 
 
+
 void handle(int a){
 	/*Catches system signals */
 	std::cout << "Caught system termination signal. Closing program..." << std::endl;
 	file.close();
+	netFile.close();
 	exit(0);
 }
 
@@ -78,11 +94,39 @@ int memory_alloc_speed(int repeat){
 	return 0;
 }
 
-void *netTest(void *data){
-	char *addr = (char *)data;
-	do_root();
-	ping(addr);
+void net_write_headers(){
+	netFile << "Date,gateway,time\n";
+}
 
+void net_write(long double *vals, char *addr){
+	time_t now = time(0);
+  	std::string dt(ctime(&now));
+	dt.erase(std::remove(dt.begin(), dt.end(), '\n'), dt.end());
+
+
+	for (size_t i = 0; i < PING_NUM; i++)
+	{
+		netFile << dt << "," << addr << "," << vals[i] << "\n";
+		
+	}	
+}
+
+void *netTest(void *data){
+	char *addr = (char *) data;
+	long double *vals;
+	
+	net_write_headers();
+	
+	while(1){
+		do_root();
+		vals = ping(addr);
+		undo_root();
+	
+		net_write(vals, addr);
+	
+		sleep(300);
+	}
+	
 }
 
 
@@ -113,7 +157,7 @@ int speed_test(int function){
 	return diff;
 }
 
-void write_data(char* name, int n, int s, int t, int u){
+void write_data(char* name, int n, int s, int t){
 	/*Writes passed averages to file */
 	time_t now = time(0);
    
@@ -122,12 +166,12 @@ void write_data(char* name, int n, int s, int t, int u){
 
 	dt.erase(std::remove(dt.begin(), dt.end(), '\n'), dt.end());
 
-	file << dt << "," << name << "," << n << ","<<  s << "," << t << "," << u << std::endl;
+	file << dt << "," << name << "," << n << ","<<  s << "," << t << std::endl;
 }
 
 void write_header(){
 	/*Writes CSV header to file */
-	file << "Date/Time,VM name,Number VMs,CPU time,Mem access time,Net time\n";
+	file << "Date/Time,VM name,Number VMs,CPU time,Mem access time\n";
 }
 
 bool DirectoryExists( const char* pzPath )
@@ -221,20 +265,25 @@ int main(int argc, char** argv) {
 	char* name = "BASELINE (no vm)";
 	int numVM = 0;
 	char yesNo = 'a';
-	//Network net("172.16.193.1", 13337);
-
 	time_t now = time(0);
 	std::string dt(ctime(&now));
+	std::string nfd;
 	dt.erase(std::remove(dt.begin(), dt.end(), '\n'), dt.end());
+	
+
 
     // opens .CSV file
-	dt = "data/" + dt + ".csv";
+	nfd = "data/netDat_" + dt + ".csv";
+	dt = "data/mainDat_" + dt + ".csv";
 	file.open(dt.c_str(), std::ios::app);
+	file.open(nfd.c_str(), std::ios::app);
 	printf("[i] File opened: %s\n", dt.c_str());
 
     // writes header
 	write_header();
 
+
+	// Get input if command args arent passed
 	if(argc != 3){
 		std::cout << "Is a Virtual Machine running? (y/n) >> ";
 		std::cin >> yesNo;
@@ -259,6 +308,8 @@ int main(int argc, char** argv) {
 		std::cout << "Beginning...\n";
 	}
 
+
+/////// GET GATEWAY ADDRESS ///////
 	FILE* comm_out;
 	comm_out = popen("traceroute google.com", "r");
 	char comm_buffer[4096];
@@ -277,13 +328,12 @@ int main(int argc, char** argv) {
 
 	fclose(comm_out);
 
-	// comm_buffer should only contain the line we want now
+/////// comm_buffer should only contain the line we want now //////
 
-
-	int diffcpu = 0, diffmem = 0, ctr = 0;//, diffnet = 0;
-	time_t start, end;//CPU, endCPU, startMEM, endMEM, startNET, endNET;
+	
+	int diffcpu = 0, diffmem = 0, ctr = 0;
+	time_t start, end;
     double elapsed; 
-	//Network dummy(false);
 
 	pthread_t nettestThread;
 
@@ -292,6 +342,8 @@ int main(int argc, char** argv) {
 		exit(1);
 	}
 
+
+/////// Primary loop ///////
 	while(true){
 		time(&start);
 		do {
@@ -306,10 +358,9 @@ int main(int argc, char** argv) {
 		} while(elapsed < 1);
 		printf("Number of individual checks in 1 second: %d\n", ctr);
 
-		write_data(name, numVM, diffcpu/ctr, diffmem/ctr, diffnet/ctr);
+		write_data(name, numVM, diffcpu/ctr, diffmem/ctr);
 		diffcpu = 0;
 		diffmem = 0;
-		diffnet = 0;
 		ctr = 0;
 	}
 
