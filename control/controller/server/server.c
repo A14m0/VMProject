@@ -34,7 +34,7 @@ int run(int portno)
     /* function for handling connections*/
 
     // Initializes variables
-    int rc = ;
+    int rc = 0;
     int sockfd, newsockfd;
     socklen_t clilen;
     char buffer[256];

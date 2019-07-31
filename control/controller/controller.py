@@ -169,12 +169,7 @@ class NetController:
 				sock.send(b'ok')
 				self.init(sock)
 				continue
-			elif cliType == "tester":
-				if not os.path.exists(".server"):
-					proc = BackgroundProcess("server/server 13337")
-					proc.start()
-					print("[i] Started analysis server")
-
+			
 			struct = ClientInfo(sock, addr, cliType)
 			self.clientArray.append(struct)
 			

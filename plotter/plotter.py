@@ -9,11 +9,11 @@ from random import randint
 
 class data:
     """Class for storing information from generated .CSV files"""
-    def __init__(self, date, time, num, cpu, mem, filename):
+    def __init__(self, date, time, num, cpu, mem, net, filename):
         self.date = date # date array
         self.cpu = cpu # cpu access time avg array
         self.mem = mem # mem access time avg array
-        #self.net = net # net comm time avg array
+        self.net = net # net comm time avg array
         self.num = num # number of VMs
         self.time = time # time of each avg set write
         self.name = filename
@@ -31,8 +31,9 @@ def getOpt(path):
     for r, d, f in os.walk(path):
         for filename in f:
             if '.csv' in filename:
-                if filename not in filenames:
-                    files.append(filename)
+                if "netDat_" not in filename:
+                    if filename not in filenames:
+                        files.append(filename)
 
     i = 1
 
@@ -83,23 +84,43 @@ def getData(path, filename):
 
     file = open(path + filename, 'r')
     reader = csv.reader(file, delimiter=',')
-
+    
     datearr = []
     memarr = []
     cpuarr = []
-    #netarr = []
+    netarr = []
     timearr = []
     numVM = ""
 
     # reads in data information from .CSV file
+    netfilename = ""
+    
+
+    foundName = False
     for row in reader:
+        print(row)
         try:
+            if not foundName:
+                netfilename = row[5]
+                print("Founded")
+                foundName = True
+
             datearr.append(row[0])
             timearr.append(row[1])
             numVM = row[2]
             cpuarr.append(int(row[3]))
             memarr.append(int(row[4]))
-            #netarr.append(int(row[5]))
+
+        except ValueError:
+            pass
+
+    print(netfilename)
+    netfile = open(path + netfilename, 'r')
+    netreader = csv.reader(netfile, delimiter=',')
+
+    for row in netreader:
+        try:
+            netarr.append(float(row[2]))
         except ValueError:
             pass
 
@@ -117,7 +138,7 @@ def getData(path, filename):
         string = string.split(" ")[3]
         datearr[i] = string
 
-    return data(datearr, timearr, numVM, cpuarr, memarr, filename)
+    return data(datearr, timearr, numVM, cpuarr, memarr, netarr, filename)
 
 
 def getSmallest(data):
@@ -141,6 +162,8 @@ def graph(data):
     # gets the smallest data set size of all passed sets
     rng = getSmallest(data)
     t = np.arange(0, rng, 1)
+
+    netT = np.arange(0, len(data[0].net), 1)
 
     gs = gridspec.GridSpec(3,1)
     fig = plt.figure(1, figsize=[40,40]) # Note that this is in inches
@@ -196,7 +219,6 @@ def graph(data):
     plt.ylabel("Memory access times")
     plt.xlabel("Time")
 
-    """
     counter = 0
     net = fig.add_subplot(gs[2,0])
     for value in data:
@@ -214,13 +236,13 @@ def graph(data):
             name.append(namearr[2])
     
         string = "%s (%s VMs)" % (" ".join(name), value.num)
-        net.scatter(t, value.net[:rng], color=colors[counter], marker='.', label=string)
+        net.scatter(netT, value.net, color=(r,g,b), marker='.', label=string)
         counter += 1
     
     plt.legend(loc='upper left')
     plt.ylabel("Network transmission times")
     plt.xlabel("Time")
-    """
+
     date = str(datetime.datetime.today())
     plt.show()
     
@@ -282,4 +304,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
 

@@ -113,14 +113,17 @@ void net_write(long double *vals, char *addr){
 
 void *netTest(void *data){
 	char *addr = (char *) data;
-	long double *vals;
+	long double vals[15];
 	
 	net_write_headers();
 	
 	while(1){
-		do_root();
-		vals = ping(addr);
-		undo_root();
+		for(size_t i =0; i < 15; i++){
+			do_root();
+			vals[i] = ping(addr);
+			undo_root();
+			sleep(1);
+		}
 	
 		net_write(vals, addr);
 	
@@ -169,9 +172,9 @@ void write_data(char* name, int n, int s, int t){
 	file << dt << "," << name << "," << n << ","<<  s << "," << t << std::endl;
 }
 
-void write_header(){
+void write_header(const char *netName){
 	/*Writes CSV header to file */
-	file << "Date/Time,VM name,Number VMs,CPU time,Mem access time\n";
+	file << "Date/Time,VM name,Number VMs,CPU time,Mem access time," << netName << "\n";
 }
 
 bool DirectoryExists( const char* pzPath )
@@ -267,6 +270,7 @@ int main(int argc, char** argv) {
 	char yesNo = 'a';
 	time_t now = time(0);
 	std::string dt(ctime(&now));
+	std::string fd;
 	std::string nfd;
 	dt.erase(std::remove(dt.begin(), dt.end(), '\n'), dt.end());
 	
@@ -274,13 +278,14 @@ int main(int argc, char** argv) {
 
     // opens .CSV file
 	nfd = "data/netDat_" + dt + ".csv";
-	dt = "data/mainDat_" + dt + ".csv";
-	file.open(dt.c_str(), std::ios::app);
-	file.open(nfd.c_str(), std::ios::app);
-	printf("[i] File opened: %s\n", dt.c_str());
+	fd = "data/mainDat_" + dt + ".csv";
+	file.open(fd.c_str(), std::ios::app);
+	netFile.open(nfd.c_str(), std::ios::app);
+	printf("[i] File opened: %s\n", fd.c_str());
 
     // writes header
-	write_header();
+	std::string namething = "netDat_" + dt + ".csv";
+	write_header(namething.c_str());
 
 
 	// Get input if command args arent passed
@@ -310,6 +315,7 @@ int main(int argc, char** argv) {
 
 
 /////// GET GATEWAY ADDRESS ///////
+	printf("[i] Getting IP of router...\n");
 	FILE* comm_out;
 	comm_out = popen("traceroute google.com", "r");
 	char comm_buffer[4096];
@@ -321,9 +327,10 @@ int main(int argc, char** argv) {
 	}
 
 	int ending_space = index_of(comm_buffer+4, ' ');
+	printf("Ending space of line: %d\n", ending_space);
 
 	char ip[4096];
-	strncpy(ip, comm_buffer+4, ending_space -4);
+	strncpy(ip, comm_buffer+4, ending_space);
 	printf("[i] Determined IP of gateway: %s\n", ip);
 
 	fclose(comm_out);

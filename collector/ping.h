@@ -2,4 +2,4 @@
 
 #define PING_NUM 15
 
-long double *ping(char *addr);
+long double ping(char *);
