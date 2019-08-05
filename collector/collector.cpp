@@ -19,15 +19,20 @@ MAYBE NAME IT AS ONE OF THE HEADER OPTIONS AND JUST LOAD THAT DATA TOO??
 
 static uid_t ruid;
 
-void handle(int a);
-int cpu_calc(int n);
-int memory_alloc_speed(int repeat);
-void error(const char *msg);
+void handle(int);
+void do_root(void);
+void undo_root(void);
+int cpu_calc(int);
+int memory_alloc_speed(int);
+void net_write_headers();
+void net_write(long double *, char *);
+void *netTest(void *);
+void error(const char *);
 //int net_speed();
-int speed_test(int function);
-void write_data(char* name, int n, int s, int t, int u);
+int speed_test(int);
+void write_data(char*, int, int, int, int);
 void write_header();
-bool DirectoryExists( const char* pzPath );
+bool DirectoryExists( const char *);
 
 
 
@@ -118,7 +123,7 @@ void *netTest(void *data){
 	net_write_headers();
 	
 	while(1){
-		for(size_t i =0; i < 15; i++){
+		for(size_t i =0; i < PING_NUM; i++){
 			do_root();
 			vals[i] = ping(addr);
 			undo_root();
@@ -177,7 +182,7 @@ void write_header(const char *netName){
 	file << "Date/Time,VM name,Number VMs,CPU time,Mem access time," << netName << "\n";
 }
 
-bool DirectoryExists( const char* pzPath )
+bool directory_exists( const char* pzPath )
 {
 	/*Tests if a directory exists in the file system */
     if ( pzPath == NULL) return false;
@@ -259,7 +264,7 @@ int main(int argc, char** argv) {
 		exit(-1);
 	}
 
-	if(!DirectoryExists("data")){
+	if(!directory_exists("data")){
 		printf("Adding directory...\n");
 		mkdir("data", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 	}
@@ -305,12 +310,12 @@ int main(int argc, char** argv) {
 		}
 
 		
-		std::cout << "Beginning...\n";
+		std::cout << "[i] Beginning...\n";
 
 	} else {
 		name = argv[1];
 		numVM = atoi(argv[2]);
-		std::cout << "Beginning...\n";
+		std::cout << "[i] Beginning...\n";
 	}
 
 
@@ -319,6 +324,7 @@ int main(int argc, char** argv) {
 	FILE* comm_out;
 	comm_out = popen("traceroute google.com", "r");
 	char comm_buffer[4096];
+	memset(comm_buffer, 0, sizeof(comm_buffer));
 	int i = 0;
 
 	while(i < 3){
@@ -326,16 +332,13 @@ int main(int argc, char** argv) {
 		i++;
 	}
 
-	int ending_space = index_of(comm_buffer+4, ' ');
-	printf("Ending space of line: %d\n", ending_space);
-
+	int first_par = index_of(comm_buffer, '(');
+	int end_par = index_of(comm_buffer+first_par, ')');
 	char ip[4096];
-	strncpy(ip, comm_buffer+4, ending_space);
+	strncpy(ip, comm_buffer+first_par+1, end_par -1);
 	printf("[i] Determined IP of gateway: %s\n", ip);
 
 	fclose(comm_out);
-
-/////// comm_buffer should only contain the line we want now //////
 
 	
 	int diffcpu = 0, diffmem = 0, ctr = 0;
