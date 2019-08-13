@@ -113,42 +113,47 @@ class Initializer:
 
 class BackgroundProcess:
     """Background Process class that takes a command and forks it 
-    into a separate process"""
+        into a separate process"""
     def __init__(self, processName):
         self.processName = processName
         self.id = hex(random.getrandbits(128))
         self.alive = True
-        
+            
         if os.path.exists('.' + self.id):
             os.remove('.' + self.id)
-        
+            
     def start(self):
         """Parses and starts passed command"""
-
+    
         if type(self.processName) != type("string"):
             string = str(self.processName).split(' ')[1]
             print("Starting command '%s'" % string)
-            proc = multiprocessing.Process(target=self.processName, args=(self.id,))
-            proc.start()
+            self.proc = multiprocessing.Process(target=self.processName, args=(self.id,))
+            self.proc.start()
         else:
             print("Starting command '%s'" % self.processName)
-            
-            proc = multiprocessing.Process(target=self.callProc)
-            proc.start()
+                
+            self.proc = multiprocessing.Process(target=self.callProc)
+            self.proc.start()
 
     def callProc(self):
         """Wrapper process for CLI commands, as you cannot pass required args to subprocess.call()"""
-        
+            
         subprocess.call(self.processName, shell=True)
         f = open('.' + self.id, 'w')
         f.write("dead")
         f.close()
         print("Process has died")
-
-
+        
     def isAlive(self):
         """Returns bool of whether the proc is dead or not"""
-        return not os.path.exists('.' + self.id)
+        self.proc.join(timeout=0)
+        if self.proc.is_alive():
+            return 1
+        return 0
+    
+
+
 
 
 class Zombie:
@@ -220,6 +225,41 @@ class Zombie:
             time.sleep(5)
 
             self.s.send(b"ok")
+
+    def handleTest(self):
+        """Handler for the testing command set"""
+
+        comms = [ "echo 'Sleeping...'; sleep 120", 
+            echoSleep,
+            "echo 'Sleeping...'; sleep 120", 
+            maxCPU,
+            "echo 'Sleeping...'; sleep 120",
+            
+        ]
+        currIndex = 0
+        self.s.send(b"ok")
+        while True:
+            # tests if all commands have been run
+            if currIndex >= len(comms) - 1:
+                currIndex = 0
+                self.logger.info("Completed one full cycle. Starting from the top", extra=self.d)
+            
+            proc = BackgroundProcess(comms[currIndex])
+            proc.start()
+            
+            while proc.isAlive():
+                self.go = self.s.recv(32).decode()
+                if self.go == "Complete":
+                    killall()
+                    time.sleep(0.1)
+                    self.s.close()
+                    self.logger.info("Script complete", extra=self.d)
+                    return
+                time.sleep(5)
+                self.s.send(b'ok')
+            self.logger.info("Process is complete, but time still exists on the clock. Choosing new proc...", extra=self.d)
+            currIndex += 1   
+
 
     def handleCPU(self):
         """Handler for the CPU-Intensive command set"""
@@ -303,6 +343,11 @@ def maxCPU(id):
     f = open('.' + id, 'w')
     f.write("dead")
     f.close()
+
+def echoSleep(self):
+    print("Hello world!")
+    time.sleep(10)
+
         
 
 def killall():

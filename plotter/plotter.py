@@ -120,7 +120,10 @@ def getData(path, filename):
 
     for row in netreader:
         try:
-            netarr.append(float(row[2]))
+            if float(row[2]) < 0 or float(row[2]) > 10000:
+                netarr.append(float(row[2]))
+            else:
+                netarr.append(float(row[2]))
         except ValueError:
             pass
 
