@@ -146,11 +146,7 @@ def crackPass(catch):
         hashobj.update(password)
         guess = hashobj.hexdigest()
         if guess == target:
-            print("[+] Password identified: %s" % password.decode())Starting command 'curl http://mirror.math.princeton.edu/pub/ubuntu-iso/14.04/ubuntu-14.04.6-desktop-amd64.iso -o file.iso'
-            % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-                                           Dload  Upload   Total   Spent    Left  Speed
-          100 1104M  100 1104M    0     0  2662k      0  0:07:04  0:07:04 --:--:-- 2412k
-          
+            print("[+] Password identified: %s" % password.decode())
             return 0
         if ctr % 10000 == 0:
             print("Current index: %d, Password: %s, Hash: %s" % (ctr, password, guess))
